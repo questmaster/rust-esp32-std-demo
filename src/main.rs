@@ -990,6 +990,62 @@ fn ssd1306g_hello_world_spi(
     Ok(())
 }
 
+#[cfg(feature = "heltec_spi")]
+fn heltec_hello_world_spi(
+    dc: gpio::Gpio4<gpio::Unknown>,
+    rst: gpio::Gpio16<gpio::Unknown>,
+    spi: spi::SPI3,
+    sclk: gpio::Gpio18<gpio::Unknown>,
+    sdo: gpio::Gpio23<gpio::Unknown>,
+    cs: gpio::Gpio5<gpio::Unknown>, 
+) -> Result<()> {
+    info!("About to initialize the Heltec SSD1306 SPI LED driver");
+
+    let config = <spi::config::Config as Default>::default()
+        .baudrate(10.MHz().into())
+        .bit_order(spi::config::BitOrder::MSBFirst);
+
+    let di = SPIInterfaceNoCS::new(
+        spi::Master::<spi::SPI3, _, _, _, _>::new(
+            spi,
+            spi::Pins {
+                sclk,
+                sdo,
+                sdi: Option::<gpio::Gpio19<gpio::Unknown>>::None,
+                cs: Some(cs),
+            },
+            config,
+        )?,
+        dc.into_output()?,
+    );
+
+    let mut delay = delay::Ets;
+    let mut reset = rst.into_output()?;
+
+    reset.set_high()?;
+    delay.delay_ms(1 as u32);
+
+    reset.set_low()?;
+    delay.delay_ms(10 as u32);
+
+    reset.set_high()?;
+
+    let mut display = ssd1306::Ssd1306::new(
+        di,
+        ssd1306::size::DisplaySize128x64,
+        ssd1306::rotation::DisplayRotation::Rotate180,
+    )
+    .into_buffered_graphics_mode();
+
+    AnyError::<display_interface::DisplayError>::wrap(|| {
+        display.init()?;
+
+        led_draw(&mut display)?;
+
+        display.flush()
+    })
+}
+
 #[cfg(feature = "ssd1306g")]
 fn ssd1306g_hello_world(
     i2c: impl peripheral::Peripheral<P = impl i2c::I2c> + 'static,
