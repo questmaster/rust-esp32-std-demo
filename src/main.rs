@@ -990,16 +990,16 @@ fn ssd1306g_hello_world_spi(
     Ok(())
 }
 
-#[cfg(feature = "heltec_spi")]
-fn heltec_hello_world_spi(
+#[cfg(feature = "ssd1306g_spi")]
+fn ssd1306g_hello_world_spi(
     dc: gpio::Gpio4<gpio::Unknown>,
     rst: gpio::Gpio16<gpio::Unknown>,
     spi: spi::SPI3,
     sclk: gpio::Gpio18<gpio::Unknown>,
     sdo: gpio::Gpio23<gpio::Unknown>,
-    cs: gpio::Gpio5<gpio::Unknown>, 
+    cs: gpio::Gpio5<gpio::Unknown>,
 ) -> Result<()> {
-    info!("About to initialize the Heltec SSD1306 SPI LED driver");
+    info!("About to initialize the SSD1306 SPI LED driver");
 
     let config = <spi::config::Config as Default>::default()
         .baudrate(10.MHz().into())
