@@ -75,6 +75,8 @@ use esp_idf_hal::i2c;
 use esp_idf_hal::peripheral;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi;
+use esp_idf_hal::ulp;
+use esp_idf_hal::ledc;
 
 use esp_idf_sys;
 use esp_idf_sys::{esp, EspError};
@@ -117,6 +119,67 @@ fn main() -> Result<()> {
 
     test_print();
 
+    #[allow(unused)]
+    let peripherals = Peripherals::take().unwrap();
+    #[allow(unused)]
+    let pins = peripherals.pins;
+
+    println!("Before OV2640 connect");
+       // SCCB_Init
+        //let config = <i2c::config::MasterConfig as Default>::default().baudrate(400.kHz().into());
+        esp_idf_sys::link_patches();
+        let mut delay = delay::Ets;
+
+//        let peripherals = Peripherals::take().unwrap();
+        let i2c = peripherals.i2c1;
+        let sda = pins.gpio13;
+        let scl = pins.gpio12;
+        let pwdn = pins.gpio26;
+        let xclk = pins.gpio32;
+
+        println!("Configuring output channel");
+
+        let ledc_config = TimerConfig::default().frequency(1.MHz().into());
+        let ledc_timer = Timer::new(peripherals.ledc.timer0, &ledc_config)?;
+        let mut ledc_channel = Channel::new(peripherals.ledc.channel0, &ledc_timer, xclk)?;
+
+        println!("Starting I2C SSD1306 test");
+
+        let config = <i2c::config::MasterConfig as Default>::default().baudrate(8.kHz().into());
+        let mut i2c0 = i2c::Master::<i2c::I2C1, _, _>::new(i2c, i2c::MasterPins { sda, scl }, config).expect("i2c1 init failed");
+        let mut pwdn = pwdn.into_output()?;
+        pwdn.set_low()?; // power-up = low
+
+
+        // SCCB_Probe
+        /*
+        OV2640_PID = 0x26,
+        OV2640_SCCB_ADDR   = 0x30
+        */
+        let slave_addr = 0x30;
+        let ov2640_pid : u8 = 0x26;
+        let buffer: &mut [u8; 2] =  &mut [0_u8,0_u8];
+        let byte1: &mut [u8; 1] =  &mut [0_u8];
+        let byte2: &mut [u8; 1] =  &mut [0_u8];
+
+        let i2c_res1 = i2c0.write(slave_addr, &[0xff, 0x01]);
+//        delay.delay_ms(10 as u32);
+//        let i2c_res1 = i2c0.write(slave_addr, &[0x12, 0x80]);
+//        println!("write -> {:#?}", i2c_res1);
+//        delay.delay_ms(50 as u32);
+        let i2c_res = i2c0.write_read(slave_addr, &[0x0a], byte1);
+        let i2c_res = i2c0.write_read(slave_addr, &[0x0b], byte2);
+        println!("return command: {} {} -> {:#?}", byte1[0], byte2[0], i2c_res);
+
+        //SCCB_Write(slv_addr, 0xFF, 0x01);//bank sensor
+        //uint16_t PID = SCCB_Read(slv_addr, 0x0A);
+        if ov2640_pid == byte1[0] {
+            println!("OV2640 found");
+        } else {
+            println!("OV2640 mismatch");
+        }
+        println!("After OV2640 connect");
+
     test_atomics();
 
     test_threads();
@@ -132,10 +195,7 @@ fn main() -> Result<()> {
     //#[cfg(target_arch = "xtensa")]
     //env::set_var("RUST_BACKTRACE", "1");
 
-    #[allow(unused)]
-    let peripherals = Peripherals::take().unwrap();
-    #[allow(unused)]
-    let pins = peripherals.pins;
+
 
     // If interrupt critical sections work fine, the code below should panic with the IWDT triggering
     // {
@@ -182,7 +242,7 @@ fn main() -> Result<()> {
     #[allow(unused)]
     let sysloop = EspSystemEventLoop::take()?;
 
-    #[cfg(feature = "ttgo")]
+    #[cfg(feature = "ttgo_off")]
     ttgo_hello_world(
         pins.gpio4,
         pins.gpio16,
@@ -228,7 +288,7 @@ fn main() -> Result<()> {
         pins.gpio5.into(),
     )?;
 
-    #[cfg(feature = "ssd1306g")]
+    #[cfg(feature = "ttgo")]
     let mut led_power = ssd1306g_hello_world(
         peripherals.i2c0,
         pins.gpio14.into(),
@@ -343,6 +403,9 @@ fn main() -> Result<()> {
 
     let mut wait = mutex.0.lock().unwrap();
 
+    #[cfg(feature = "ttgo")]
+    let mut pir = pins.gpio33.into_analog_atten_11db()?;
+
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     let mut hall_sensor = peripherals.hall_sensor;
 
@@ -373,6 +436,11 @@ fn main() -> Result<()> {
             log::info!(
                 "Hall sensor reading: {}mV",
                 powered_adc1.read_hall(&mut hall_sensor).unwrap()
+            );
+            #[cfg(feature = "ttgo")]
+            log::info!(
+                "PIR sensor reading: {}mV",
+                powered_adc1.read(&mut pir).unwrap()
             );
             log::info!(
                 "A2 sensor reading: {}mV",
@@ -803,7 +871,7 @@ mod experimental {
     }
 }
 
-#[cfg(feature = "ttgo")]
+#[cfg(feature = "ttgo_off")]
 fn ttgo_hello_world(
     backlight: gpio::Gpio4,
     dc: gpio::Gpio16,
@@ -1046,7 +1114,7 @@ fn ssd1306g_hello_world_spi(
     })
 }
 
-#[cfg(feature = "ssd1306g")]
+#[cfg(feature = "ttgo")]
 fn ssd1306g_hello_world(
     i2c: impl peripheral::Peripheral<P = impl i2c::I2c> + 'static,
     pwr: gpio::AnyOutputPin,
