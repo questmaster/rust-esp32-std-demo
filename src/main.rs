@@ -42,6 +42,7 @@ use smol;
 use embedded_hal::adc::OneShot;
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::prelude::_embedded_hal_blocking_i2c_WriteRead;
 
 use embedded_svc::eth;
 #[allow(deprecated)]
@@ -76,7 +77,10 @@ use esp_idf_hal::peripheral;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi;
 use esp_idf_hal::ulp;
-use esp_idf_hal::ledc;
+use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+use std::hash::Hasher;
+use smol::io::AsyncWriteExt;
+use embedded_hal::prelude::_embedded_hal_blocking_i2c_Write;
 
 use esp_idf_sys;
 use esp_idf_sys::{esp, EspError};
