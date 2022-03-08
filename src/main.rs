@@ -77,7 +77,7 @@ use esp_idf_hal::peripheral;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi;
 use esp_idf_hal::ulp;
-use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer, Resolution};
 use std::hash::Hasher;
 use smol::io::AsyncWriteExt;
 use embedded_hal::prelude::_embedded_hal_blocking_i2c_Write;
@@ -98,6 +98,8 @@ use ssd1306;
 use ssd1306::mode::DisplayConfig;
 
 use epd_waveshare::{epd4in2::*, graphics::VarDisplay, prelude::*};
+
+mod ov2640;
 
 #[allow(dead_code)]
 #[cfg(not(feature = "qemu"))]
@@ -129,23 +131,23 @@ fn main() -> Result<()> {
     let pins = peripherals.pins;
 
     println!("Before OV2640 connect");
-       // SCCB_Init
-        //let config = <i2c::config::MasterConfig as Default>::default().baudrate(400.kHz().into());
-        esp_idf_sys::link_patches();
-        let mut delay = delay::Ets;
+    esp_idf_sys::link_patches();
 
-//        let peripherals = Peripherals::take().unwrap();
-        let i2c = peripherals.i2c1;
-        let sda = pins.gpio13;
-        let scl = pins.gpio12;
-        let pwdn = pins.gpio26;
-        let xclk = pins.gpio32;
+    let i2c = peripherals.i2c1;
+    let sda = pins.gpio13;
+    let scl = pins.gpio12;
+    let pwdn = pins.gpio26;
+    let xclk = pins.gpio32;
 
-        println!("Configuring output channel");
-
-        let ledc_config = TimerConfig::default().frequency(1.MHz().into());
-        let ledc_timer = Timer::new(peripherals.ledc.timer0, &ledc_config)?;
-        let mut ledc_channel = Channel::new(peripherals.ledc.channel0, &ledc_timer, xclk)?;
+    ov2640::setup (
+        sda,
+        scl,
+        i2c,
+        pwdn,
+        xclk,
+        peripherals.ledc.timer0,
+        peripherals.ledc.channel0,
+    )?;
 
         println!("Starting I2C SSD1306 test");
 
