@@ -16,6 +16,8 @@ use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer, Resolution, TIMER0,
 
 use esp_idf_sys::EspError;
 
+pub mod i2s_cam;
+
 pub fn setup (
     sda: gpio::Gpio13<gpio::Unknown>,
     scl: gpio::Gpio12<gpio::Unknown>,
@@ -71,5 +73,12 @@ pub fn setup (
          println!("OV2640 mismatch");
          
      }
+
+     // I2S init
+     let i2s = i2s_cam::I2S0;
+//     let i2s_pins = i2s_cam::Pins { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+//     let i2s0 = i2s_cam::CameraSlave(i2s, i2s_pins);
+
+
      Ok(())
 }
