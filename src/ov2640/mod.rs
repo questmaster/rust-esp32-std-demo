@@ -26,6 +26,18 @@ pub fn setup (
     xclk: gpio::Gpio32<gpio::Unknown>,
     ledc_timer: TIMER0,
     ledc_channel: CHANNEL0,
+    vsync: gpio::Gpio27<gpio::Unknown>,
+    hsync: gpio::Gpio25<gpio::Unknown>,
+    href: gpio::Gpio25<gpio::Unknown>,
+    pclk: gpio::Gpio19<gpio::Unknown>,
+    sd0: gpio::Gpio5<gpio::Unknown>,
+    sd1: gpio::Gpio14<gpio::Unknown>,
+    sd2: gpio::Gpio4<gpio::Unknown>,
+    sd3: gpio::Gpio15<gpio::Unknown>,
+    sd4: gpio::Gpio18<gpio::Unknown>,
+    sd5: gpio::Gpio23<gpio::Unknown>,
+    sd6: gpio::Gpio36<gpio::Unknown>,
+    sd7: gpio::Gpio39<gpio::Unknown>,
 ) -> Result<(), EspError>
 {
     let mut delay = delay::Ets;
@@ -76,8 +88,8 @@ pub fn setup (
 
      // I2S init
      let i2s = i2s_cam::I2S0;
-//     let i2s_pins = i2s_cam::Pins { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-//     let i2s0 = i2s_cam::CameraSlave(i2s, i2s_pins);
+     let i2s_pins = i2s_cam::Pins { vsync, hsync, href, pclk, sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7 };
+     let i2s0 = i2s_cam::CameraSlave {i2s, pins: i2s_pins};
 
 
      Ok(())

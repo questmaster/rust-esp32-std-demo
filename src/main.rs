@@ -139,6 +139,20 @@ fn main() -> Result<()> {
     let pwdn = pins.gpio26;
     let xclk = pins.gpio32;
 
+//    let i2s = ov2640::i2s_cam::i2s0;
+    let vsync = pins.gpio27;
+    let hsync = pins.gpio25;
+    let href = pins.gpio25;
+    let pclk = pins.gpio19;
+    let sd0 = pins.gpio5;
+    let sd1 = pins.gpio14;
+    let sd2 = pins.gpio4;
+    let sd3 = pins.gpio15;
+    let sd4 = pins.gpio18;
+    let sd5 = pins.gpio23;
+    let sd6 = pins.gpio36;
+    let sd7 = pins.gpio39;
+
     ov2640::setup (
         sda,
         scl,
@@ -147,6 +161,11 @@ fn main() -> Result<()> {
         xclk,
         peripherals.ledc.timer0,
         peripherals.ledc.channel0,
+        vsync,
+        hsync,
+        href,
+        pclk,
+        sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7,
     )?;
 
         println!("Starting I2C SSD1306 test");

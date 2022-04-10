@@ -36,8 +36,8 @@ pub struct Pins<
 
 
 /// I2S configuration
-/*pub mod config {
-    use crate::units::*;
+pub mod config {
+    use esp_idf_hal::units::*;
 
     /// I2S configuration
     #[derive(Copy, Clone)]
@@ -50,7 +50,7 @@ pub struct Pins<
         pub fn new() -> Self {
             Default::default()
         }
-
+/*
         #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
@@ -61,7 +61,7 @@ pub struct Pins<
         pub fn data_mode(mut self, data_mode: embedded_hal::spi::Mode) -> Self {
             self.data_mode = data_mode;
             self
-        }
+        }*/
     }
 
     impl Default for Config {
@@ -72,7 +72,7 @@ pub struct Pins<
             }
         }
     }
-}*/
+}
 
 struct Lock(i2s_port_t);
 
@@ -117,91 +117,63 @@ pub struct CameraSlave<
 impl<I2S: I2s, VSYNC: InputPin, HSYNC: InputPin, HREF: InputPin, PCLK: InputPin, 
     SD0: InputPin, SD1: InputPin, SD2: InputPin, SD3: InputPin, SD4: InputPin, SD5: InputPin, SD6: InputPin, SD7: InputPin>
     CameraSlave<I2S, VSYNC, HSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>
-{/*
+{
     /// Internal implementation of new shared by all SPI controllers
     fn new_internal(
-        spi: SPI,
-        pins: Pins<SCLK, SDO, SDI, CS>,
+        i2s: I2S,
+        pins: Pins<VSYNC, HSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
         config: config::Config,
     ) -> Result<Self, EspError> {
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: pins.sclk.pin(),
-
-            data4_io_num: -1,
-            data5_io_num: -1,
-            data6_io_num: -1,
-            data7_io_num: -1,
-            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: pins.sdo.pin(),
-                //data0_io_num: -1,
-            },
-            __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
-                //data1_io_num: -1,
-            },
-            __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
-                quadwp_io_num: -1,
-                //data2_io_num: -1,
-            },
-            __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
-                quadhd_io_num: -1,
-                //data3_io_num: -1,
-            },
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
-            ..Default::default()
-        };
-
-        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: pins.sclk.pin(),
-
-            mosi_io_num: pins.sdo.pin(),
-            miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
-            quadwp_io_num: -1,
-            quadhd_io_num: -1,
-
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+        let i2s_config =  i2s_config_t {
+            mode: i2s_mode_t_I2S_MODE_MASTER | i2s_mode_t_I2S_MODE_TX,
+            sample_rate: 44100,
+            bits_per_sample: 16,
+            channel_format: i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFTGHT_LEFT,
+            communication_format: i2s_comm_format_t_I2S_COMM_FORMAT_STAND_I2SS,
+            intr_alloc_flags: 0, // default interrupt priority
+            dma_buf_count: 8,
+            dma_buf_len: 64,
+            use_apll: false,
+         
+            
             ..Default::default()
         };
 
         esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
+            i2s_driver_install(port, i2s_config, 0, NULL)/*TODO: DMA support*/
         })?;
 
-        let device_config = spi_device_interface_config_t {
-            spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
-            clock_speed_hz: config.baudrate.0 as i32,
-            mode: (if config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh {
-                2
-            } else {
-                0
-            }) | (if config.data_mode.phase
-                == embedded_hal::spi::Phase::CaptureOnSecondTransition
-            {
-                1
-            } else {
-                0
-            }),
-            queue_size: 64,
+        let pin_config: i2s_pin_config_t = {
+            bck_io_num: 26,
+            ws_io_num: 25,
+            data_out_num: 22,
+            data_in_num: I2S_PIN_NO_CHANGE,
+
             ..Default::default()
         };
+  
+        esp!(unsafe {
+            i2s_set_pin(port, &pin_config)
+        })?;
+/*
+        // TODO: DMA and samplerate config? i2s_set_dac_mode
 
-        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        */
+
+        let mut device_handle: i2s_device_handle_t = ptr::null_mut();
 
         esp!(unsafe {
             spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)
         })?;
 
         Ok(Self {
-            spi,
+            i2s,
             pins,
             device: device_handle,
         })
     }
-
+/*
     /// Release and return the raw interface to the underlying SPI peripheral
     #[allow(clippy::type_complexity)]
     pub fn release(self) -> Result<(SPI, Pins<SCLK, SDO, SDI, CS>), EspError> {
