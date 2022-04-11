@@ -139,9 +139,10 @@ fn main() -> Result<()> {
     let pwdn = pins.gpio26;
     let xclk = pins.gpio32;
 
-//    let i2s = ov2640::i2s_cam::i2s0;
+    // I2S
     let vsync = pins.gpio27;
-    let hsync = pins.gpio25;
+//    let hsync = not used
+//    let rst = not used
     let href = pins.gpio25;
     let pclk = pins.gpio19;
     let sd0 = pins.gpio5;
@@ -162,7 +163,6 @@ fn main() -> Result<()> {
         peripherals.ledc.timer0,
         peripherals.ledc.channel0,
         vsync,
-        hsync,
         href,
         pclk,
         sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7,

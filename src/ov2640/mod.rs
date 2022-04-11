@@ -1,4 +1,3 @@
-
 use std::io::{Read, Write};
 use std::error::Error;
 
@@ -15,6 +14,7 @@ use esp_idf_hal::ledc;
 use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer, Resolution, TIMER0, CHANNEL0};
 
 use esp_idf_sys::EspError;
+use crate::ov2640::i2s_cam::I2sPeripherals;
 
 pub mod i2s_cam;
 
@@ -27,7 +27,6 @@ pub fn setup (
     ledc_timer: TIMER0,
     ledc_channel: CHANNEL0,
     vsync: gpio::Gpio27<gpio::Unknown>,
-    hsync: gpio::Gpio25<gpio::Unknown>,
     href: gpio::Gpio25<gpio::Unknown>,
     pclk: gpio::Gpio19<gpio::Unknown>,
     sd0: gpio::Gpio5<gpio::Unknown>,
@@ -87,9 +86,22 @@ pub fn setup (
      }
 
      // I2S init
-     let i2s = i2s_cam::I2S0;
-     let i2s_pins = i2s_cam::Pins { vsync, hsync, href, pclk, sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7 };
-     let i2s0 = i2s_cam::CameraSlave {i2s, pins: i2s_pins};
+     let mut vsync = vsync.into_input()?;
+     let mut pclk = pclk.into_input()?;
+     let mut sd0 = sd0.into_input()?;
+     let mut sd1 = sd1.into_input()?;
+     let mut sd2 = sd2.into_input()?;
+     let mut sd3 = sd3.into_input()?;
+     let mut sd4 = sd4.into_input()?;
+     let mut sd5 = sd5.into_input()?;
+     let mut sd6 = sd6.into_input()?;
+     let mut sd7 = sd7.into_input()?;
+
+     let i2speriph = I2sPeripherals::take().unwrap();
+     let i2s = i2speriph.i2s0;
+     let i2s_config = <i2s_cam::config::Config as Default>::default();
+     let i2s_pins = i2s_cam::Pins { vsync, href, pclk, sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7 };
+     let i2s0 = i2s_cam::CameraSlave::<i2s_cam::I2S0, _, _, _, _, _, _, _, _, _, _, _>::new(i2s, i2s_pins, i2s_config);
 
 
      Ok(())

@@ -1,4 +1,16 @@
+///
+/// TODO:
+///     - Support for optional signals (hsync, rst)
+///     - DMA support
+///     - more than camera mode
+///     - Both I2S modules 0 + 1 (currently just 0)
+///     - Clean-up Config from SPI placeholder to I2S
+///
+
+
 use core::{borrow::Borrow, marker::PhantomData};
+use core::ptr;
+use esp_idf_hal::{gpio, mutex};
 
 use esp_idf_sys::*;
 
@@ -8,7 +20,6 @@ use crate::gpio::InputPin;
 /// Pins used by the I2S interface
 pub struct Pins<
     VSYNC: InputPin,
-    HSYNC: InputPin,
     HREF: InputPin,
     PCLK: InputPin,
     SD0: InputPin,
@@ -21,7 +32,6 @@ pub struct Pins<
     SD7: InputPin,
 > {
     pub vsync: VSYNC,
-    pub hsync: HSYNC,
     pub href: HREF,
     pub pclk: PCLK,
     pub sd0: SD0,
@@ -97,7 +107,6 @@ impl Drop for Lock {
 pub struct CameraSlave<
     I2S: I2s,
     VSYNC: InputPin,
-    HSYNC: InputPin,
     HREF: InputPin,
     PCLK: InputPin,
     SD0: InputPin,
@@ -110,67 +119,82 @@ pub struct CameraSlave<
     SD7: InputPin,
 > {
     i2s: I2S,
-    pins: Pins<VSYNC, HSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
+    pins: Pins<VSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
     port: i2s_port_t,
 }
 
-impl<I2S: I2s, VSYNC: InputPin, HSYNC: InputPin, HREF: InputPin, PCLK: InputPin, 
+/// Implementation for I2S0
+impl<VSYNC: InputPin, HREF: InputPin, PCLK: InputPin,
     SD0: InputPin, SD1: InputPin, SD2: InputPin, SD3: InputPin, SD4: InputPin, SD5: InputPin, SD6: InputPin, SD7: InputPin>
-    CameraSlave<I2S, VSYNC, HSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>
+CameraSlave<I2S0, VSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>
+{
+    /// Create new instance of I2S controller for I2S0
+    ///
+    /// This ia an initial set of vars.
+    pub fn new(
+        i2s: I2S0,
+        pins: Pins<VSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
+        config: config::Config,
+    ) -> Result<Self, EspError> {
+        CameraSlave::new_internal(i2s, pins, config)
+    }
+}
+
+/// General implementation
+impl<I2S: I2s, VSYNC: InputPin, HREF: InputPin, PCLK: InputPin,
+    SD0: InputPin, SD1: InputPin, SD2: InputPin, SD3: InputPin, SD4: InputPin, SD5: InputPin, SD6: InputPin, SD7: InputPin>
+    CameraSlave<I2S, VSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>
 {
     /// Internal implementation of new shared by all SPI controllers
     fn new_internal(
         i2s: I2S,
-        pins: Pins<VSYNC, HSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
+        pins: Pins<VSYNC, HREF, PCLK, SD0, SD1, SD2, SD3, SD4, SD5, SD6, SD7>,
         config: config::Config,
     ) -> Result<Self, EspError> {
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let i2s_config =  i2s_config_t {
             mode: i2s_mode_t_I2S_MODE_MASTER | i2s_mode_t_I2S_MODE_TX,
             sample_rate: 44100,
             bits_per_sample: 16,
-            channel_format: i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFTGHT_LEFT,
-            communication_format: i2s_comm_format_t_I2S_COMM_FORMAT_STAND_I2SS,
+            channel_format: i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT,
+            communication_format: i2s_comm_format_t_I2S_COMM_FORMAT_STAND_I2S,
             intr_alloc_flags: 0, // default interrupt priority
             dma_buf_count: 8,
             dma_buf_len: 64,
             use_apll: false,
-         
-            
+
             ..Default::default()
         };
 
         esp!(unsafe {
-            i2s_driver_install(port, i2s_config, 0, NULL)/*TODO: DMA support*/
+            i2s_driver_install(I2S::port(), &i2s_config, 0, ptr::null_mut()) /*TODO: DMA support*/
         })?;
 
-        let pin_config: i2s_pin_config_t = {
+        let pin_config = i2s_pin_config_t {
             bck_io_num: 26,
             ws_io_num: 25,
             data_out_num: 22,
-            data_in_num: I2S_PIN_NO_CHANGE,
+            data_in_num: 23,
 
             ..Default::default()
         };
   
         esp!(unsafe {
-            i2s_set_pin(port, &pin_config)
+            i2s_set_pin(I2S::port(), &pin_config)
         })?;
-/*
+
+        /*
         // TODO: DMA and samplerate config? i2s_set_dac_mode
+        esp!(unsafe {
+            i2s_set_dac_mode(I2S::port(), ...)
+        })?;
 
         */
 
-        let mut device_handle: i2s_device_handle_t = ptr::null_mut();
-
-        esp!(unsafe {
-            spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)
-        })?;
 
         Ok(Self {
             i2s,
             pins,
-            device: device_handle,
+            port: I2S::port(),
         })
     }
 /*
@@ -346,7 +370,7 @@ pub trait I2s: Send {
 
 macro_rules! impl_i2s {
     ($i2s:ident: $port:expr) => {
-        pub struct $i2s(pub ::core::marker::PhantomData<*const ()>);
+        pub struct $i2s(::core::marker::PhantomData<*const ()>);
 
         impl $i2s {
             /// # Safety
@@ -371,3 +395,33 @@ macro_rules! impl_i2s {
 impl_i2s!(I2S0: i2s_port_t_I2S_NUM_0);
 impl_i2s!(I2S1: i2s_port_t_I2S_NUM_1);
 
+pub struct I2sPeripherals {
+    pub i2s0: I2S0,
+    pub i2s1: I2S1,
+}
+
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+
+impl I2sPeripherals {
+    pub fn take() -> Option<Self> {
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            None
+        } else {
+            *taken = true;
+            Some(unsafe { I2sPeripherals::new() })
+        }
+    }
+
+    /// # Safety
+    ///
+    /// Care should be taken not to instantiate the Peripherals structure, if it is already instantiated and used elsewhere
+    pub unsafe fn new() -> Self {
+        Self {
+            i2s0: I2S0::new(),
+            i2s1: I2S1::new(),
+        }
+    }
+
+}
