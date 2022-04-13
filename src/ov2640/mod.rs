@@ -16,7 +16,82 @@ use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer, Resolution, TIMER0,
 use esp_idf_sys::EspError;
 use crate::ov2640::i2s_cam::I2sPeripherals;
 
+use volatile_register::RW;
+
 pub mod i2s_cam;
+
+
+/// Nested Vector Interrupt Controller
+#[repr(C)]
+pub struct I2sBlock {
+    reserved0: [u32; 2],
+    pub conf: RW<u32>, // 0x3ff4_f008
+    reserved1: [u32; 4],
+    pub timing: RW<u32>, // 0x3ff4_f01c
+    pub fifoConf: RW<u32>, // 0x3ff4_f020
+    reserved2: [u32; 2],
+    pub confChan: RW<u32>, //0x3ff4_f02c
+    reserved3: [u32; 12],
+    pub lcConf: RW<u32>, // 0x3ff4_f060
+    reserved4: [u32; 15],
+    pub conf1: RW<u32>, // 0x3ff4_f0a0
+    reserved5: [u32; 1],
+    pub conf2: RW<u32>, // 0x3ff4_f0a8
+    pub clkmConf: RW<u32>, // 0x3ff4_f0ac
+    pub sampleRateConf: RW<u32>, // 0x3ff4f0b0
+    // .. more registers ..
+}
+
+/// GPIOA Struct
+pub struct I2S0reg {
+    p: &'static mut I2sBlock,
+}
+
+/// GPIOA Implementation
+impl I2S0reg {
+    pub fn new() -> Self {
+        Self {
+            p: unsafe { &mut *(0x3FF4_F000 as *mut I2sBlock) },
+        }
+    }
+    
+    pub fn set_conf(&mut self, value: u32) {
+        unsafe { self.p.conf.write(value) }
+    }
+
+    pub fn set_conf1(&mut self, value: u32) {
+        unsafe { self.p.conf1.write(value) }
+    }
+
+    pub fn set_conf2(&mut self, value: u32) {
+        unsafe { self.p.conf2.write(value) }
+    }
+
+    pub fn set_timing(&mut self, value: u32) {
+        unsafe { self.p.timing.write(value) }
+    }
+
+    pub fn set_fifoConf(&mut self, value: u32) {
+        unsafe { self.p.fifoConf.write(value) }
+    }
+
+    pub fn set_confChan(&mut self, value: u32) {
+        unsafe { self.p.confChan.write(value) }
+    }
+
+    pub fn set_cklmConf(&mut self, value: u32) {
+        unsafe { self.p.clkmConf.write(value) }
+    }
+
+    pub fn set_sampleRateConf(&mut self, value: u32) {
+        unsafe { self.p.sampleRateConf.write(value) }
+    }
+
+    pub fn set_lcConf(&mut self, value: u32) {
+        unsafe { self.p.lcConf.write(value) }
+    }
+
+}
 
 pub fn setup (
     sda: gpio::Gpio13<gpio::Unknown>,
@@ -97,12 +172,28 @@ pub fn setup (
      let mut sd6 = sd6.into_input()?;
      let mut sd7 = sd7.into_input()?;
 
+/*  This is not needed for now.
      let i2speriph = I2sPeripherals::take().unwrap();
      let i2s = i2speriph.i2s0;
      let i2s_config = <i2s_cam::config::Config as Default>::default();
      let i2s_pins = i2s_cam::Pins { vsync, href, pclk, sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7 };
      let i2s0 = i2s_cam::CameraSlave::<i2s_cam::I2S0, _, _, _, _, _, _, _, _, _, _, _>::new(i2s, i2s_pins, i2s_config);
+*/
 
+     let mut i2sregs = I2S0reg::new();
+     // reset
+     i2sregs.set_conf(0x0000_000a); // rx_rst, rx_fifo_rst
+     i2sregs.set_conf(0x0000_0000);
+     i2sregs.set_lcConf(0);
+
+     // conf slave mode
+     i2sregs.set_conf(0x0000_0080);
+     i2sregs.set_conf2(0);
+     i2sregs.set_cklmConf(0);
+     i2sregs.set_fifoConf(0);
+     i2sregs.set_confChan(0);
+     i2sregs.set_sampleRateConf(0);
+     i2sregs.set_timing(0);
 
      Ok(())
 }
