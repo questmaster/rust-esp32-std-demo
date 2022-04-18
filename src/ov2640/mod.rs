@@ -14,14 +14,17 @@ use esp_idf_hal::ledc;
 use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer, Resolution, TIMER0, CHANNEL0};
 
 use esp_idf_sys::EspError;
-use crate::ov2640::i2s_cam::I2sPeripherals;
+use esp_idf_sys::periph_module_enable;
+use esp_idf_sys::periph_module_t_PERIPH_I2S0_MODULE;
 
 use volatile_register::RW;
 
-pub mod i2s_cam;
+//pub mod i2s_cam;
+//use crate::ov2640::i2s_cam::I2sPeripherals;
 
 
-/// Nested Vector Interrupt Controller
+/// I2S0 Peripheral register block
+/// To be located at 0x3FF4_F000 in ESP32 memory
 #[repr(C)]
 pub struct I2sBlock {
     reserved0: [u32; 2],
@@ -160,6 +163,9 @@ pub fn setup (
          
      }
 
+
+     println!("Start I2S config");
+     //// ll_cam_set_pin
      // I2S init
      let mut vsync = vsync.into_input()?;
      let mut pclk = pclk.into_input()?;
@@ -181,19 +187,42 @@ pub fn setup (
 */
 
      let mut i2sregs = I2S0reg::new();
+     //// ll_cam_config
+     unsafe {
+         periph_module_enable(periph_module_t_PERIPH_I2S0_MODULE);
+     }
      // reset
      i2sregs.set_conf(0x0000_000a); // rx_rst, rx_fifo_rst
      i2sregs.set_conf(0x0000_0000);
+     i2sregs.set_lcConf(0x0000_000d);
      i2sregs.set_lcConf(0);
 
      // conf slave mode
      i2sregs.set_conf(0x0000_0080);
-     i2sregs.set_conf2(0);
-     i2sregs.set_cklmConf(0);
-     i2sregs.set_fifoConf(0);
-     i2sregs.set_confChan(0);
-     i2sregs.set_sampleRateConf(0);
-     i2sregs.set_timing(0);
+     i2sregs.set_conf2(0x0000_0021);
+     i2sregs.set_cklmConf(0x0000_0002);
+     i2sregs.set_fifoConf(0x0013_1410); // sampling mode = 0A00_0B00 = 3
+     i2sregs.set_confChan(0x0000_0004);
+     i2sregs.set_sampleRateConf(0x0001_0186);
+     i2sregs.set_timing(0x0020_0000);
+
+
+     //// ll_cam_start
+
+
+     //// re-read memory
+    unsafe {
+        let mem = &mut *(0x3FF4_F000 as *mut [u32; 48]);
+        let mut addr = 0_u16;
+
+        println!("===================================================");
+        for reg in mem
+        {
+            println!("mem(0x3FF4_F{:03X}): {:#010x}", addr, reg);
+            addr = addr +4;
+        }
+        println!("===================================================");
+    }
 
      Ok(())
 }
