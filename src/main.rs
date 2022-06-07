@@ -99,7 +99,7 @@ use ssd1306::mode::DisplayConfig;
 
 use epd_waveshare::{epd4in2::*, graphics::VarDisplay, prelude::*};
 
-mod ov2640;
+//mod ov2640;
 
 #[allow(dead_code)]
 #[cfg(not(feature = "qemu"))]
@@ -130,6 +130,7 @@ fn main() -> Result<()> {
     #[allow(unused)]
     let pins = peripherals.pins;
 
+/*
     println!("Before OV2640 connect");
     esp_idf_sys::link_patches();
 
@@ -167,6 +168,7 @@ fn main() -> Result<()> {
         pclk,
         sd0, sd1, sd2, sd3, sd4, sd5, sd6, sd7,
     )?;
+ */
 
         println!("Starting I2C SSD1306 test");
 

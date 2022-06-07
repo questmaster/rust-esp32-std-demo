@@ -68,7 +68,8 @@ log = "0.4"
 url = "2"
 esp-idf-sys = { version = "0.32", features = ["binstart"] }
 esp-idf-svc = "0.45"
-esp-idf-hal = "0.40"
+#esp-idf-hal = "0.40"
+esp-idf-hal = { git = "https://github.com/questmaster/esp-idf-hal", branch="i2s_cam" }
 embedded-svc = "0.24"
 embedded-hal = "0.2"
 embedded-graphics = "0.7"
