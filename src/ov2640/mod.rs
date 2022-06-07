@@ -46,52 +46,54 @@ pub struct I2sBlock {
 }
 
 /// GPIOA Struct
-pub struct I2S0reg {
-    p: &'static mut I2sBlock,
+pub struct I2Sregs {
+    i2s0: &'static mut I2sBlock,
+    i2s1: &'static mut I2sBlock,
 }
 
 /// GPIOA Implementation
-impl I2S0reg {
+impl I2Sregs {
     pub fn new() -> Self {
         Self {
-            p: unsafe { &mut *(0x3FF4_F000 as *mut I2sBlock) },
+            i2s0: unsafe { &mut *(0x3FF4_F000 as *mut I2sBlock) },
+            i2s1: unsafe { &mut *(0x3FF6_D000 as *mut I2sBlock) },
         }
     }
     
     pub fn set_conf(&mut self, value: u32) {
-        unsafe { self.p.conf.write(value) }
+        unsafe { self.i2s0.conf.write(value) }
     }
 
     pub fn set_conf1(&mut self, value: u32) {
-        unsafe { self.p.conf1.write(value) }
+        unsafe { self.i2s0.conf1.write(value) }
     }
 
     pub fn set_conf2(&mut self, value: u32) {
-        unsafe { self.p.conf2.write(value) }
+        unsafe { self.i2s0.conf2.write(value) }
     }
 
     pub fn set_timing(&mut self, value: u32) {
-        unsafe { self.p.timing.write(value) }
+        unsafe { self.i2s0.timing.write(value) }
     }
 
     pub fn set_fifoConf(&mut self, value: u32) {
-        unsafe { self.p.fifoConf.write(value) }
+        unsafe { self.i2s0.fifoConf.write(value) }
     }
 
     pub fn set_confChan(&mut self, value: u32) {
-        unsafe { self.p.confChan.write(value) }
+        unsafe { self.i2s0.confChan.write(value) }
     }
 
     pub fn set_cklmConf(&mut self, value: u32) {
-        unsafe { self.p.clkmConf.write(value) }
+        unsafe { self.i2s0.clkmConf.write(value) }
     }
 
     pub fn set_sampleRateConf(&mut self, value: u32) {
-        unsafe { self.p.sampleRateConf.write(value) }
+        unsafe { self.i2s0.sampleRateConf.write(value) }
     }
 
     pub fn set_lcConf(&mut self, value: u32) {
-        unsafe { self.p.lcConf.write(value) }
+        unsafe { self.i2s0.lcConf.write(value) }
     }
 
 }
@@ -186,7 +188,7 @@ pub fn setup (
      let i2s0 = i2s_cam::CameraSlave::<i2s_cam::I2S0, _, _, _, _, _, _, _, _, _, _, _>::new(i2s, i2s_pins, i2s_config);
 */
 
-     let mut i2sregs = I2S0reg::new();
+     let mut i2sregs = I2Sregs::new();
      //// ll_cam_config
      unsafe {
          periph_module_enable(periph_module_t_PERIPH_I2S0_MODULE);
